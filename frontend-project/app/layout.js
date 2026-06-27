@@ -1,28 +1,28 @@
-import './globals.css'
-import { Toaster } from 'sonner'
-import Header from '../components/layout/header'
-import Sidebar from '../components/layout/sidebar'
+import { Metadata } from "next";
+import "./globals.css";
+import { Toaster } from "sonner";
 
 export const metadata = {
-  title: 'AgriMind AI - Smart Agriculture Assistant',
-  description: 'AI-powered platform for crop management, disease detection, and market intelligence',
-}
+  title: "AgriMind AI — Smart Crop Intelligence",
+  description: "AI-powered crop analysis, soil health, market prices and weather for modern farmers.",
+};
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className="bg-gray-50">
-        <div className="flex h-screen">
-          <Sidebar />
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <Header />
-            <main className="flex-1 overflow-y-auto p-6">
-              {children}
-            </main>
-          </div>
-        </div>
-        <Toaster position="top-right" />
+      <body>
+        {children}
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: '#1A2E1A',
+              border: '1px solid rgba(61,154,64,0.3)',
+              color: '#F0EBE0',
+            }
+          }}
+        />
       </body>
     </html>
-  )
+  );
 }

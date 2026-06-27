@@ -1,119 +1,218 @@
-import Link from 'next/link'
-import { Button } from '../components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
-import { MessageCircle, Cloud, Leaf, Bug, TrendingUp } from 'lucide-react'
+"use client";
+
+import { useState } from "react";
+import {
+  CloudSun,
+  Layers,
+  TrendingUp,
+  MessageCircle,
+  Microscope,
+  Sprout,
+} from "lucide-react";
+
+import Navbar from "../components/Navbar";
+import UploadPanel from "../components/UploadPanel";
+import WeatherPanel from "../components/WeatherPanel";
+import SoilPanel from "../components/SoilPanel";
+import MarketPanel from "../components/MarketPanel";
+import ChatPanel from "../components/ChatPanel";
+import CropAnalysisPanel from "../components/CropAnalysisPanel";
+
+const tabs = [
+  { id: "analysis", label: "Crop Analysis", icon: Microscope },
+  { id: "weather", label: "Weather", icon: CloudSun },
+  { id: "soil", label: "Soil", icon: Layers },
+  { id: "market", label: "Market", icon: TrendingUp },
+  { id: "chat", label: "AI Chat", icon: MessageCircle },
+];
 
 export default function Home() {
-  const features = [
-    {
-      title: 'AI Agriculture Chat',
-      description: 'Ask questions about crops, fertilizers, and farming practices',
-      icon: MessageCircle,
-      href: '/chat',
-      color: 'bg-green-500'
-    },
-    {
-      title: 'Weather Intelligence',
-      description: 'Get real-time weather data and forecasts for your farm',
-      icon: Cloud,
-      href: '/weather',
-      color: 'bg-blue-500'
-    },
-    {
-      title: 'Soil Analysis',
-      description: 'Upload soil reports for nutrient analysis and recommendations',
-      icon: Leaf,
-      href: '/soil-analysis',
-      color: 'bg-yellow-600'
-    },
-    {
-      title: 'Disease Detection',
-      description: 'Upload crop images for disease identification',
-      icon: Bug,
-      href: '/disease-detection',
-      color: 'bg-red-500'
-    },
-    {
-      title: 'Market Intelligence',
-      description: 'Get crop prices, trends, and profitability insights',
-      icon: TrendingUp,
-      href: '/market-intelligence',
-      color: 'bg-purple-500'
-    }
-  ]
+  const [activeTab, setActiveTab] = useState("analysis");
+  const [uploadedImage, setUploadedImage] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const handleImageUpload = async (_file, preview) => {
+    setUploadedImage(preview);
+    setIsAnalyzing(true);
+
+    await new Promise((resolve) => setTimeout(resolve, 3200));
+
+    setIsAnalyzing(false);
+    setActiveTab("analysis");
+  };
 
   return (
-    <div className="space-y-8">
-      <div className="text-center space-y-4">
-        <h1 className="text-5xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent">
-          AgriMind AI
+    <div className="min-h-screen grid-bg">
+      <Navbar />
+
+      <section className="pt-28 pb-10 px-6 text-center relative">
+        <div
+          className="absolute top-20 left-1/2 -translate-x-1/2 w-96 h-40 rounded-full blur-3xl opacity-20"
+          style={{
+            background: "radial-gradient(ellipse, #3D9A40, transparent)",
+          }}
+        />
+
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <div
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full"
+            style={{
+              background: "rgba(61,154,64,0.1)",
+              border: "1px solid rgba(61,154,64,0.25)",
+              color: "#52C455",
+            }}
+          >
+            <Sprout size={12} />
+            AI-Powered Agriculture Intelligence
+          </div>
+        </div>
+
+        <h1
+          className="font-display text-4xl md:text-5xl font-bold mb-4 leading-tight"
+          style={{ color: "#F0EBE0" }}
+        >
+          Grow smarter with
+          <br />
+          <span style={{ color: "#52C455" }}>
+            real-time crop intelligence
+          </span>
         </h1>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          Your AI-powered agriculture intelligence platform for smarter farming decisions
+
+        <p
+          className="text-base max-w-lg mx-auto"
+          style={{ color: "#8FAF8F" }}
+        >
+          Upload a photo of your crop or soil. AgriMind AI instantly diagnoses
+          issues, checks weather, analyses nutrients, and shows the best market
+          prices.
         </p>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {features.map((feature) => (
-          <Link key={feature.title} href={feature.href}>
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-              <CardHeader>
-                <div className={`w-12 h-12 ${feature.color} rounded-lg flex items-center justify-center mb-4`}>
-                  <feature.icon className="w-6 h-6 text-white" />
-                </div>
-                <CardTitle>{feature.title}</CardTitle>
-                <CardDescription>{feature.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button variant="outline" className="w-full">
-                  Get Started →
-                </Button>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+      <main className="max-w-7xl mx-auto px-4 md:px-6 pb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-      <Card className="bg-gradient-to-r from-green-50 to-blue-50">
-        <CardHeader>
-          <CardTitle>How It Works</CardTitle>
-          <CardDescription>
-            AgriMind AI combines multiple AI technologies to provide comprehensive farming assistance
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-2xl font-bold text-green-600">1</span>
+          {/* Upload Panel */}
+          <div className="lg:col-span-4">
+            <div className="card p-5 sticky top-24">
+              <div className="flex items-center gap-2 mb-5">
+                <div
+                  className="w-1 h-5 rounded-full"
+                  style={{ background: "#52C455" }}
+                />
+                <h2
+                  className="font-semibold text-sm"
+                  style={{ color: "#F0EBE0" }}
+                >
+                  Scan Your Crop or Soil
+                </h2>
               </div>
-              <h3 className="font-semibold mb-2">Ask Questions</h3>
-              <p className="text-sm text-gray-600">Chat about your farming needs</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-2xl font-bold text-green-600">2</span>
-              </div>
-              <h3 className="font-semibold mb-2">Upload Data</h3>
-              <p className="text-sm text-gray-600">Share soil reports or crop images</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-2xl font-bold text-green-600">3</span>
-              </div>
-              <h3 className="font-semibold mb-2">AI Analysis</h3>
-              <p className="text-sm text-gray-600">Our agents analyze your data</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-2xl font-bold text-green-600">4</span>
-              </div>
-              <h3 className="font-semibold mb-2">Get Insights</h3>
-              <p className="text-sm text-gray-600">Receive personalized recommendations</p>
+
+              <UploadPanel
+                onImageUpload={handleImageUpload}
+                isAnalyzing={isAnalyzing}
+                uploadedImage={uploadedImage}
+              />
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Insights Panel */}
+          <div className="lg:col-span-8">
+
+            <div className="flex gap-1.5 mb-5 flex-wrap">
+              {tabs.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                    activeTab === id ? "tab-active" : ""
+                  }`}
+                  style={{
+                    border: `1px solid ${
+                      activeTab === id
+                        ? "rgba(61,154,64,0.4)"
+                        : "rgba(61,154,64,0.12)"
+                    }`,
+                    color: activeTab === id ? "#52C455" : "#6B8F6B",
+                    background:
+                      activeTab === id
+                        ? "rgba(61,154,64,0.12)"
+                        : "transparent",
+                  }}
+                >
+                  <Icon size={14} />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="card p-5">
+              {activeTab === "analysis" && (
+                <CropAnalysisPanel
+                  isAnalyzing={isAnalyzing}
+                  hasImage={!!uploadedImage}
+                />
+              )}
+
+              {activeTab === "weather" && <WeatherPanel />}
+
+              {activeTab === "soil" && <SoilPanel />}
+
+              {activeTab === "market" && <MarketPanel />}
+
+              {activeTab === "chat" && <ChatPanel />}
+            </div>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+          {[
+            {
+              label: "Farmers served",
+              value: "2.4L+",
+              sub: "across 12 states",
+            },
+            {
+              label: "Diagnoses made",
+              value: "18M+",
+              sub: "crop & soil scans",
+            },
+            {
+              label: "Avg yield boost",
+              value: "+23%",
+              sub: "reported by users",
+            },
+            {
+              label: "Accuracy rate",
+              value: "94.2%",
+              sub: "AI diagnosis precision",
+            },
+          ].map(({ label, value, sub }) => (
+            <div key={label} className="card p-4 text-center card-hover">
+              <p
+                className="font-display text-2xl font-bold"
+                style={{ color: "#52C455" }}
+              >
+                {value}
+              </p>
+
+              <p
+                className="text-sm font-medium mt-1"
+                style={{ color: "#F0EBE0" }}
+              >
+                {label}
+              </p>
+
+              <p
+                className="text-xs mt-0.5"
+                style={{ color: "#6B8F6B" }}
+              >
+                {sub}
+              </p>
+            </div>
+          ))}
+        </div>
+      </main>
     </div>
-  )
+  );
 }
