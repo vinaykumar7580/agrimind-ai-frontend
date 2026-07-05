@@ -21,6 +21,45 @@ export default function SignupPage() {
         state: '', district: '', landAcres: '', farmingType: 'traditional',
     });
 
+    const handleSubmit = async () => {
+        setLoading(true);
+
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}/api/signup`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    name: form.name,
+                    phone: form.phone,
+                    password: form.password,
+                    state: form.state,
+                    district: form.district,
+                    land_acres: Number(form.landAcres) || null,
+                    farming_type: form.farmingType,
+                    primary_crops: selectedCrops,
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || "Signup failed");
+            }
+
+            toast.success("Signup completed successfully.");
+
+            // Redirect after successful signup
+            router.push("/login"); // or "/" if you prefer
+        } catch (err) {
+            console.error(err);
+            toast.error(err.message || "Something went wrong.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handle = (e) =>
         setForm(p => ({ ...p, [e.target.name]: e.target.value }));
 
@@ -50,10 +89,7 @@ export default function SignupPage() {
             if (!form.district.trim()) { toast.error("Please enter your district"); return; }
         }
         if (step === 2) {
-            setLoading(true);
-            await new Promise(r => setTimeout(r, 1800));
-            toast.success("Account created! Welcome to AgriMind 🌱");
-            router.push("/");
+            await handleSubmit();
             return;
         }
         setStep(s => s + 1);

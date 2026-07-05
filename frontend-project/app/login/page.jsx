@@ -18,11 +18,35 @@ export default function LoginPage() {
     if (!form.phone || !form.password) { toast.error("Please fill all fields"); return; }
     if (form.phone.length !== 10) { toast.error("Enter a valid 10-digit mobile number"); return; }
     if (form.password.length < 8) { toast.error("Password must be at least 8 characters"); return; }
+
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1500));
-    toast.success("Welcome back to AgriMind!");
-    router.push("/");
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}/api/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Login failed");
+      }
+
+      toast.success("Welcome back to AgriMind!");
+      router.push("/");
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+
 
   return (
     <div className="min-h-screen grid-bg flex">
