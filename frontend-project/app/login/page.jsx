@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Leaf, Eye, EyeOff, ArrowRight, Phone, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { setCookie } from "cookies-next";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,6 +37,11 @@ export default function LoginPage() {
         throw new Error(data.message || "Login failed");
       }
 
+      setCookie("token", data?.data?.access_token, {
+        maxAge: 60 * 60 * 24, // 1 day
+        path: "/",
+      });
+      
       toast.success("Welcome back to AgriMind!");
       router.push("/");
     } catch (err) {

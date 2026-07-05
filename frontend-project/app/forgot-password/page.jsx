@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Leaf, Phone, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Check, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
-const steps = ["Find Account", "New Password", "Done"];
+const steps = ["Mobile Number", "New Password", "Done"];
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -36,18 +36,51 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     await new Promise(r => setTimeout(r, 1400));
     setLoading(false);
-    toast.success("Account found!");
     setStep(1);
   };
 
+
   const resetPassword = async () => {
-    if (form.password.length < 8) { toast.error("Password must be at least 8 characters"); return; }
-    if (form.password !== form.confirmPassword) { toast.error("Passwords do not match"); return; }
+  if (form.password.length < 8) {
+    toast.error("Password must be at least 8 characters");
+    return;
+  }
+
+  if (form.password !== form.confirmPassword) {
+    toast.error("Passwords do not match");
+    return;
+  }
+
+  try {
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1600));
-    setLoading(false);
+
+    const res = await fetch(`${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}/api/forgot-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        phone,
+        new_password: form.password,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      toast.error(data.detail || data.message || "Failed to reset password");
+      return;
+    }
+
+    toast.success(data.message);
     setStep(2);
-  };
+  } catch (error) {
+    console.error(error);
+    toast.error("Something went wrong");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const inputCls = "w-full py-3 rounded-xl text-sm outline-none transition-all";
   const inputStyle = {
@@ -200,7 +233,7 @@ export default function ForgotPasswordPage() {
                       placeholder="9876543210" type="tel" maxLength={10}
                       className={`${inputCls} pl-20 pr-4`} style={inputStyle}
                       onFocus={focusOn} onBlur={focusOff}
-                      onKeyDown={e => e.key === "Enter" && findAccount()} />
+                      onKeyDown={e => e.key === "Enter"} />
                   </div>
                   {phone && phone.length < 10 && (
                     <p className="text-xs mt-1.5" style={{ color: "#E8A020" }}>
@@ -223,7 +256,7 @@ export default function ForgotPasswordPage() {
                   }}>
                   {loading
                     ? <><div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" /> Finding account...</>
-                    : <>Find My Account <ArrowRight size={15} /></>}
+                    : <>Next Step <ArrowRight size={15} /></>}
                 </button>
               </div>
 
