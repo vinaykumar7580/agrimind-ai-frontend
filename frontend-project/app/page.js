@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   CloudSun,
   Layers,
@@ -30,6 +30,34 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("analysis");
   const [uploadedImage, setUploadedImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [profile, setProfile]=useState(null);
+  const [loading, setLoading]=useState(null);
+    
+    useEffect(()=>{
+      const fetchProfile=async()=>{
+        setLoading(true)
+        try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}/api/get-profile`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        
+      });
+
+      const data = await response.json();
+      setProfile(data?.data)
+      
+    } catch (err) {
+      console.error(err);
+      
+    } finally {
+      setLoading(false);
+    }
+      }
+      fetchProfile();
+
+    },[])
 
   const handleImageUpload = async (_file, preview) => {
     setUploadedImage(preview);
@@ -43,7 +71,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen grid-bg">
-      <Navbar />
+      <Navbar data={profile} />
 
       <section className="pt-28 pb-10 px-6 text-center relative">
         <div

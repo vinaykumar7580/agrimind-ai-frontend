@@ -11,7 +11,7 @@ const navLinks = [
   { label: 'Community', href: '/community' },
 ];
 
-export default function Navbar() {
+export default function Navbar({data}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -51,7 +51,12 @@ export default function Navbar() {
         </button>
         <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold"
           style={{ background: 'linear-gradient(135deg, #3D9A40, #52C455)', color: '#0F1F0F' }}>
-          AJ
+          {data?.name
+    ?.split(" ")
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase()}
         </div>
         <button className="md:hidden" onClick={() => setOpen(!open)}>
           {open ? <X size={18} style={{ color: '#6B8F6B' }} /> : <Menu size={18} style={{ color: '#6B8F6B' }} />}
