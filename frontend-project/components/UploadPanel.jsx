@@ -16,6 +16,7 @@ export default function UploadPanel({
   onImageUpload,
   isAnalyzing,
   uploadedImage,
+  profile
 }) {
   const [dragging, setDragging] = useState(false);
   const [scanType, setScanType] = useState("crop");
@@ -36,11 +37,15 @@ export default function UploadPanel({
 
       reader.onload = (e) => {
         if (e.target?.result) {
-          onImageUpload(file, e.target.result);
+          onImageUpload({
+            file,
+            preview: e.target.result,
+            scanType,
+            location: profile?.district,
+          });
 
           toast.success(
-            `${
-              scanType === "crop" ? "Crop" : "Soil"
+            `${scanType === "crop" ? "Crop" : "Soil"
             } image uploaded — analyzing now`
           );
         }
@@ -92,9 +97,8 @@ export default function UploadPanel({
           <button
             key={type}
             onClick={() => setScanType(type)}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
-              scanType === type ? "tab-active" : ""
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${scanType === type ? "tab-active" : ""
+              }`}
             style={{
               color: scanType === type ? "#52C455" : "#6B8F6B",
               border: "1px solid transparent",
@@ -108,9 +112,8 @@ export default function UploadPanel({
 
       {/* Upload Zone */}
       <div
-        className={`upload-zone rounded-2xl cursor-pointer relative overflow-hidden ${
-          dragging ? "dragging" : ""
-        }`}
+        className={`upload-zone rounded-2xl cursor-pointer relative overflow-hidden ${dragging ? "dragging" : ""
+          }`}
         style={{ minHeight: "260px" }}
         onDrop={onDrop}
         onDragOver={(e) => {
@@ -311,15 +314,15 @@ export default function UploadPanel({
         <ul className="space-y-1.5">
           {(scanType === "crop"
             ? [
-                "Capture leaves clearly in natural daylight",
-                "Include visible disease spots or discoloration",
-                "Avoid heavy shadows on the plant",
-              ]
+              "Capture leaves clearly in natural daylight",
+              "Include visible disease spots or discoloration",
+              "Avoid heavy shadows on the plant",
+            ]
             : [
-                "Take a close-up of the soil surface",
-                "Include a small sample of soil texture",
-                "Capture after light rain for best color accuracy",
-              ]
+              "Take a close-up of the soil surface",
+              "Include a small sample of soil texture",
+              "Capture after light rain for best color accuracy",
+            ]
           ).map((tip, i) => (
             <li
               key={i}

@@ -30,48 +30,86 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("analysis");
   const [uploadedImage, setUploadedImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [profile, setProfile]=useState(null);
-  const [loading, setLoading]=useState(null);
-    
-    useEffect(()=>{
-      const fetchProfile=async()=>{
-        setLoading(true)
-        try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}/api/get-profile`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        
-      });
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
+  const [scanId, setScanId]=useState(null)
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true)
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}/api/get-profile`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+        });
+
+        const data = await response.json();
+        setProfile(data?.data)
+
+      } catch (err) {
+        console.error(err);
+
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProfile();
+
+  }, [])
+
+
+  const handleImageUpload = async ({
+    file,
+    preview,
+    scanType,
+    location,
+  }) => {
+    try {
+      setUploadedImage(preview);
+      setIsAnalyzing(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("scan_type", scanType);
+
+      if (location) {
+        formData.append("location", location);
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}/api/upload-image`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: formData,
+        }
+      );
 
       const data = await response.json();
-      setProfile(data?.data)
-      
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Analysis failed");
+      }
+
+      setScanId(data?.scan_id)
+      setAnalysis(data?.result);
+      setActiveTab("analysis");
     } catch (err) {
       console.error(err);
-      
     } finally {
-      setLoading(false);
+      setIsAnalyzing(false);
     }
-      }
-      fetchProfile();
-
-    },[])
-
-  const handleImageUpload = async (_file, preview) => {
-    setUploadedImage(preview);
-    setIsAnalyzing(true);
-
-    await new Promise((resolve) => setTimeout(resolve, 3200));
-
-    setIsAnalyzing(false);
-    setActiveTab("analysis");
   };
 
   return (
     <div className="min-h-screen grid-bg">
-      <Navbar data={profile} />
+      <Navbar />
 
       <section className="pt-28 pb-10 px-6 text-center relative">
         <div
@@ -139,6 +177,7 @@ export default function Home() {
                 onImageUpload={handleImageUpload}
                 isAnalyzing={isAnalyzing}
                 uploadedImage={uploadedImage}
+                profile={profile}
               />
             </div>
           </div>
@@ -151,15 +190,13 @@ export default function Home() {
                 <button
                   key={id}
                   onClick={() => setActiveTab(id)}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                    activeTab === id ? "tab-active" : ""
-                  }`}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === id ? "tab-active" : ""
+                    }`}
                   style={{
-                    border: `1px solid ${
-                      activeTab === id
-                        ? "rgba(61,154,64,0.4)"
-                        : "rgba(61,154,64,0.12)"
-                    }`,
+                    border: `1px solid ${activeTab === id
+                      ? "rgba(61,154,64,0.4)"
+                      : "rgba(61,154,64,0.12)"
+                      }`,
                     color: activeTab === id ? "#52C455" : "#6B8F6B",
                     background:
                       activeTab === id
@@ -178,6 +215,7 @@ export default function Home() {
                 <CropAnalysisPanel
                   isAnalyzing={isAnalyzing}
                   hasImage={!!uploadedImage}
+                  analysis={analysis}
                 />
               )}
 

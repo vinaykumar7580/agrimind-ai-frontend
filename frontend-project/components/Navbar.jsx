@@ -1,6 +1,6 @@
 "use client";
 import { Leaf, Bell, Settings, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -11,9 +11,38 @@ const navLinks = [
   { label: 'Community', href: '/community' },
 ];
 
-export default function Navbar({data}) {
+export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(null);
+
   const pathname = usePathname();
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true)
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}/api/get-profile`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+        });
+
+        const data = await response.json();
+        setProfile(data?.data)
+
+      } catch (err) {
+        console.error(err);
+
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProfile();
+
+  }, [])
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
@@ -51,12 +80,12 @@ export default function Navbar({data}) {
         </button>
         <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold"
           style={{ background: 'linear-gradient(135deg, #3D9A40, #52C455)', color: '#0F1F0F' }}>
-          {data?.name
-    ?.split(" ")
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase()}
+          {profile?.name
+            ?.split(" ")
+            .slice(0, 2)
+            .map((word) => word[0])
+            .join("")
+            .toUpperCase()}
         </div>
         <button className="md:hidden" onClick={() => setOpen(!open)}>
           {open ? <X size={18} style={{ color: '#6B8F6B' }} /> : <Menu size={18} style={{ color: '#6B8F6B' }} />}
