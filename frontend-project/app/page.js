@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   CloudSun,
   Layers,
@@ -33,7 +33,11 @@ export default function Home() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(null);
   const [analysis, setAnalysis] = useState(null);
+  const [soilAnalysis, setSoilAnalysis] = useState(null);
+  const [weather, setWeather] = useState(null);
+  const [weatherError, setWeatherError] = useState(false);
   const [scanId, setScanId]=useState(null)
+  const weatherRequested = useRef(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -61,6 +65,39 @@ export default function Home() {
 
   }, [])
 
+  // Each weather request runs a Gemini call on the backend, so the ref keeps it
+  // to one: it blocks StrictMode's repeat effect and repeat tab opens, and is
+  // reset on failure so reopening the tab retries.
+  useEffect(() => {
+    if (activeTab !== "weather" || weatherRequested.current) return;
+
+    weatherRequested.current = true;
+    setWeatherError(false);
+
+    const fetchWeather = async () => {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}/api/weather`
+        );
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data?.detail || data?.message || "Weather fetch failed"
+          );
+        }
+
+        setWeather(data);
+      } catch (err) {
+        console.error(err);
+        weatherRequested.current = false;
+        setWeatherError(true);
+      }
+    };
+
+    fetchWeather();
+  }, [activeTab])
+
 
   const handleImageUpload = async ({
     file,
@@ -68,9 +105,14 @@ export default function Home() {
     scanType,
     location,
   }) => {
+    const isSoilScan = scanType === "soil";
+    const setResult = isSoilScan ? setSoilAnalysis : setAnalysis;
+
     try {
       setUploadedImage(preview);
       setIsAnalyzing(true);
+      setResult(null);
+      setActiveTab(isSoilScan ? "soil" : "analysis");
 
       const formData = new FormData();
       formData.append("file", file);
@@ -98,8 +140,7 @@ export default function Home() {
       }
 
       setScanId(data?.scan_id)
-      setAnalysis(data?.result);
-      setActiveTab("analysis");
+      setResult(data?.result);
     } catch (err) {
       console.error(err);
     } finally {
@@ -219,9 +260,19 @@ export default function Home() {
                 />
               )}
 
-              {activeTab === "weather" && <WeatherPanel />}
+              {activeTab === "weather" && (
+                <WeatherPanel
+                  data={weather}
+                  error={weatherError}
+                />
+              )}
 
-              {activeTab === "soil" && <SoilPanel />}
+              {activeTab === "soil" && (
+                <SoilPanel
+                  isAnalyzing={isAnalyzing}
+                  analysis={soilAnalysis}
+                />
+              )}
 
               {activeTab === "market" && <MarketPanel />}
 
