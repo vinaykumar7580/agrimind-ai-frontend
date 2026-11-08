@@ -26,6 +26,19 @@ const tabs = [
   { id: "chat", label: "AI Chat", icon: MessageCircle },
 ];
 
+const fetchBackendJson = async (path) => {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}${path}`
+  );
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.detail || data?.message || "Request failed");
+  }
+
+  return data;
+};
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState("analysis");
   const [uploadedImage, setUploadedImage] = useState(null);
@@ -36,8 +49,14 @@ export default function Home() {
   const [soilAnalysis, setSoilAnalysis] = useState(null);
   const [weather, setWeather] = useState(null);
   const [weatherError, setWeatherError] = useState(false);
+  const [marketPrices, setMarketPrices] = useState(null);
+  const [marketError, setMarketError] = useState(false);
+  const [forecast, setForecast] = useState(null);
+  const [forecastError, setForecastError] = useState(false);
   const [scanId, setScanId]=useState(null)
   const weatherRequested = useRef(false);
+  const pricesLoading = useRef(false);
+  const forecastRequested = useRef(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -96,6 +115,45 @@ export default function Home() {
     };
 
     fetchWeather();
+  }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab !== "market") return;
+
+    // Prices are cheap, and the backend swaps sample prices for live ones in
+    // the background, so refetch on every visit. The ref only blocks
+    // overlapping requests, such as StrictMode's repeat effect.
+    if (!pricesLoading.current) {
+      pricesLoading.current = true;
+
+      fetchBackendJson("/api/market/prices")
+        .then((data) => {
+          setMarketPrices(data);
+          setMarketError(false);
+        })
+        .catch((err) => {
+          console.error(err);
+          setMarketError(true);
+        })
+        .finally(() => {
+          pricesLoading.current = false;
+        });
+    }
+
+    // The forecast runs a Gemini call, so fetch it once; retry only after a
+    // failure, when the tab is opened again.
+    if (!forecastRequested.current) {
+      forecastRequested.current = true;
+      setForecastError(false);
+
+      fetchBackendJson("/api/market/forecast")
+        .then(setForecast)
+        .catch((err) => {
+          console.error(err);
+          forecastRequested.current = false;
+          setForecastError(true);
+        });
+    }
   }, [activeTab])
 
 
@@ -274,7 +332,14 @@ export default function Home() {
                 />
               )}
 
-              {activeTab === "market" && <MarketPanel />}
+              {activeTab === "market" && (
+                <MarketPanel
+                  prices={marketPrices}
+                  error={marketError}
+                  forecast={forecast}
+                  forecastError={forecastError}
+                />
+              )}
 
               {activeTab === "chat" && <ChatPanel />}
             </div>
