@@ -19,13 +19,12 @@ const suggestions = [
   "When should I harvest my soybeans?",
 ];
 
-const API_BASE = process.env.NEXT_PUBLIC_FRONTEND_BASE_URL;
 const PAGE_SIZE = 50;
 
 // History pages backwards: skip=0 is the newest page, each page oldest-first.
 const fetchHistoryPage = async (skip) => {
   const response = await fetch(
-    `${API_BASE}/api/chat/history?skip=${skip}&limit=${PAGE_SIZE}`
+    `/api/chat/history?skip=${skip}&limit=${PAGE_SIZE}`
   );
   const data = await response.json();
 
@@ -184,7 +183,7 @@ export default function ChatPanel({ scanId, active }) {
     setIsTyping(true);
 
     try {
-      const response = await fetch(`${API_BASE}/api/chat/message`, {
+      const response = await fetch(`/api/chat/message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: msg, scan_id: scanId ?? null }),
@@ -226,7 +225,7 @@ export default function ChatPanel({ scanId, active }) {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/api/chat/history`, {
+      const response = await fetch(`/api/chat/history`, {
         method: "DELETE",
       });
 

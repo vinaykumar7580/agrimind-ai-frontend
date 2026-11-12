@@ -28,7 +28,7 @@ const tabs = [
 
 const fetchBackendJson = async (path) => {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}${path}`
+    `${path}`
   );
   const data = await response.json();
 
@@ -63,7 +63,7 @@ export default function Home() {
     const fetchProfile = async () => {
       setLoading(true)
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}/api/get-profile`, {
+        const response = await fetch(`/api/get-profile`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -97,7 +97,7 @@ export default function Home() {
     const fetchWeather = async () => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}/api/weather`
+          `/api/weather`
         );
         const data = await response.json();
 
@@ -186,7 +186,7 @@ export default function Home() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}/api/upload-image`,
+        `/api/upload-image`,
         {
           method: "POST",
           headers: {

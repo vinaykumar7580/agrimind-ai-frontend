@@ -27,7 +27,7 @@ export const initials = (name = "") =>
   name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
 
 export async function fetchJson(path, options) {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}${path}`, options);
+  const response = await fetch(`${path}`, options);
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {

@@ -22,7 +22,7 @@ export default function Navbar() {
     const fetchProfile = async () => {
       setLoading(true)
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_FRONTEND_BASE_URL}/api/get-profile`, {
+        const response = await fetch(`/api/get-profile`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",

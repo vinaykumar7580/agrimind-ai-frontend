@@ -29,8 +29,13 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts",
     "**/*.ts",
-    "**/*.tsx"
-, "components/agents/AgentStatusGrid.js", "components/chat/ChatInterface.js", "components/dashboard/Sidebar.js"  ],
+    "**/*.tsx",
+    "components/agents/AgentStatusGrid.js",
+    "components/chat/ChatInterface.js",
+    "components/dashboard/Sidebar.js",
+    ".next-vercel-check/types/**/*.ts",
+    ".next-vercel-check/dev/types/**/*.ts"
+  ],
   "exclude": [
     "node_modules"
   ]
