@@ -1,5 +1,5 @@
-import { proxyBackendGet } from "../../../../lib/proxyBackendGet";
+import { proxyBackend } from "../../../../lib/proxyBackend";
 
 export async function GET() {
-  return proxyBackendGet("/market/prices");
+  return proxyBackend("/market/prices");
 }

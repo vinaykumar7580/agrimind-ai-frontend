@@ -1,46 +1,14 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Navbar from "../../components/Navbar";
 import {
   MessageCircle, Share2, Bookmark, Search, TrendingUp,
-  Users, Award, Plus, ThumbsUp, X, Image, Tag, ChevronDown
+  Users, Award, Plus, ThumbsUp, X, Image, Tag, ChevronDown, Trash2
 } from "lucide-react";
 import { toast } from "sonner";
+import { backendAsset, fetchJson, initials, parseUtc, timeAgo } from "../../lib/format";
 
-const initialPosts = [
-  {
-    id: 1, author: 'Ramesh Patil', avatar: 'RP', location: 'Nashik, MH', time: '2h ago',
-    tag: 'Disease Control', emoji: '🍅',
-    title: 'Early Blight in Tomato — what worked for me',
-    body: 'After 2 failed attempts with other fungicides, Mancozeb 75 WP at 2.5g/litre every 8 days completely controlled the blight on my 3-acre field. Make sure to spray early morning before 9AM. Also, remove affected lower leaves first.',
-    likes: 142, comments: 38, bookmarked: false, liked: false,
-    tags: ['Tomato', 'Fungicide', 'Kharif'],
-  },
-  {
-    id: 2, author: 'Sunita Devi', avatar: 'SD', location: 'Amritsar, PB', time: '5h ago',
-    tag: 'Yield Tip', emoji: '🌾',
-    title: 'Wheat yield jumped 28% after split nitrogen application',
-    body: 'Instead of applying all urea at once, I split it: 40% at sowing, 30% at CRI stage (21 days), 30% at tillering (42 days). My yield went from 18 to 23 quintals per acre this rabi season. AgriMind AI suggested this schedule based on my soil report.',
-    likes: 89, comments: 21, bookmarked: true, liked: true,
-    tags: ['Wheat', 'Nitrogen', 'Rabi', 'Fertilizer'],
-  },
-  {
-    id: 3, author: 'Gopal Krishnan', avatar: 'GK', location: 'Coimbatore, TN', time: '1d ago',
-    tag: 'Question', emoji: '❓',
-    title: 'Brown spots on cotton leaves — anyone seen this before?',
-    body: 'My Bt cotton is showing brown circular spots on older leaves, about 1-2cm diameter with yellow halo. Appears on 30% of plants in field C. Soil moisture seems fine. Uploaded to AgriMind and it suggested Alternaria but I am not fully sure.',
-    likes: 34, comments: 52, bookmarked: false, liked: false,
-    tags: ['Cotton', 'Help Needed', 'Disease'],
-  },
-  {
-    id: 4, author: 'Kavitha Narayanan', avatar: 'KN', location: 'Belgaum, KA', time: '2d ago',
-    tag: 'Market Tip', emoji: '📈',
-    title: 'Held my onion stock and got ₹800 more per quintal',
-    body: 'AgriMind market forecast said prices would rise in 15 days. I took the risk and stored 40 quintals. Bought cold storage for ₹2/kg. Sold at ₹2,200 instead of ₹1,400 fifteen days later. Net profit increase: ₹32,000. Worth every rupee.',
-    likes: 217, comments: 64, bookmarked: false, liked: false,
-    tags: ['Onion', 'Market', 'Storage', 'Success Story'],
-  },
-];
+const PAGE_SIZE = 20;
 
 const tagConfig = {
   'Disease Control': { bg: 'rgba(232,64,64,0.12)',   color: '#E84040' },
@@ -63,7 +31,7 @@ const categoryEmojis = {
 const cropSuggestions = ['Wheat','Rice','Tomato','Onion','Soybean','Cotton','Sugarcane','Maize','Potato','Mustard','Chana','Brinjal'];
 
 
-function ShareStoryModal({ onClose, onSubmit }) {
+function ShareStoryModal({ onClose, onSubmit, author }) {
   const [step, setStep] = useState('compose');
   const [form, setForm] = useState({
     title: '',
@@ -78,13 +46,18 @@ function ShareStoryModal({ onClose, onSubmit }) {
 
   const categories = ['Disease Control','Yield Tip','Question','Market Tip','Success Story','Farming Tip'];
 
+  // Keep the File for the upload; the object URL is only for the preview.
   const handleImage = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith('image/')) { toast.error('Please choose an image file'); return; }
     if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5MB'); return; }
-    const reader = new FileReader();
-    reader.onload = ev => setForm(p => ({ ...p, image: ev.target?.result}));
-    reader.readAsDataURL(file);
+    setForm(p => ({ ...p, image: { file, preview: URL.createObjectURL(file) } }));
+  };
+
+  const removeImage = () => {
+    if (form.image) URL.revokeObjectURL(form.image.preview);
+    setForm(p => ({ ...p, image: null }));
   };
 
   const toggleCrop = (crop) =>
@@ -102,17 +75,23 @@ function ShareStoryModal({ onClose, onSubmit }) {
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    await new Promise(r => setTimeout(r, 1400));
-    onSubmit({
-      title: form.title,
-      body: form.body,
-      tag: form.tag,
-      tags: selectedCrops,
-      emoji: categoryEmojis[form.tag] || '🌿',
-      image: form.image,
-    });
-    setSubmitting(false);
-    onClose();
+    try {
+      const data = new FormData();
+      data.append('title', form.title.trim());
+      data.append('body', form.body.trim());
+      data.append('tag', form.tag);
+      data.append('emoji', categoryEmojis[form.tag] || '🌿');
+      data.append('post_tags', JSON.stringify(selectedCrops));
+      if (form.image) data.append('image', form.image.file);
+
+      const post = await fetchJson('/api/community/posts', { method: 'POST', body: data });
+      onSubmit(post);
+      onClose();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || 'Could not publish your post');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -284,9 +263,9 @@ function ShareStoryModal({ onClose, onSubmit }) {
                 </label>
                 {form.image ? (
                   <div className="relative rounded-xl overflow-hidden" style={{ height: '160px' }}>
-                    <img src={form.image} alt="Attached" className="w-full h-full object-cover" />
+                    <img src={form.image.preview} alt="Attached" className="w-full h-full object-cover" />
                     <button
-                      onClick={() => setForm(p => ({ ...p, image: null }))}
+                      onClick={removeImage}
                       className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center"
                       style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(232,64,64,0.4)' }}>
                       <X size={13} style={{ color: '#E84040' }} />
@@ -332,11 +311,11 @@ function ShareStoryModal({ onClose, onSubmit }) {
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
                     style={{ background: 'linear-gradient(135deg, rgba(61,154,64,0.3), rgba(82,196,85,0.2))', color: '#52C455', border: '1px solid rgba(61,154,64,0.3)' }}>
-                    You
+                    {author?.name ? initials(author.name) : "You"}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: '#F0EBE0' }}>Your Name</p>
-                    <p className="text-xs" style={{ color: '#6B8F6B' }}>Your Location · Just now</p>
+                    <p className="text-sm font-semibold" style={{ color: '#F0EBE0' }}>{author?.name || 'You'}</p>
+                    <p className="text-xs" style={{ color: '#6B8F6B' }}>{[author?.location, 'Just now'].filter(Boolean).join(' · ')}</p>
                   </div>
                 </div>
                 <span className="text-xs px-2.5 py-1 rounded-full font-medium"
@@ -357,7 +336,7 @@ function ShareStoryModal({ onClose, onSubmit }) {
               {/* Attached image */}
               {form.image && (
                 <div className="rounded-xl overflow-hidden mb-4" style={{ height: '180px' }}>
-                  <img src={form.image} alt="Attached" className="w-full h-full object-cover" />
+                  <img src={form.image.preview} alt="Attached" className="w-full h-full object-cover" />
                 </div>
               )}
 
@@ -440,50 +419,153 @@ function ShareStoryModal({ onClose, onSubmit }) {
 }
 
 
+
+const allTags = ['All', 'Disease Control', 'Yield Tip', 'Market Tip', 'Question', 'Success Story', 'Farming Tip', 'Saved'];
+const medals = ['🥇', '🥈', '🥉', '⭐'];
+
 export default function CommunityPage() {
-  const [postList, setPostList] = useState(initialPosts);
+  const [postList, setPostList] = useState([]);
+  const [status, setStatus] = useState('loading');
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
   const [activeTag, setActiveTag] = useState('All');
   const [showModal, setShowModal] = useState(false);
+  const [stats, setStats] = useState(null);
+  const [author, setAuthor] = useState(null);
+  const [pending, setPending] = useState({});   // post id -> action in flight
+  const requestId = useRef(0);
+  const loaded = useRef(false);
 
-  const toggle = (id, field='liked' | 'bookmarked') => {
-    setPostList(prev => prev.map(p => {
-      if (p.id !== id) return p;
-      const val = !p[field];
-      if (field === 'liked') toast(val ? '👍 Liked!' : 'Like removed');
-      if (field === 'bookmarked') toast(val ? '🔖 Saved to bookmarks' : 'Bookmark removed');
-      return { ...p, [field]: val, likes: field === 'liked' ? p.likes + (val ? 1 : -1) : p.likes };
-    }));
+  const loadStats = () =>
+    fetchJson('/api/community/stats').then(setStats).catch(err => console.error(err));
+
+  // Profile (for the post preview) and sidebar stats, once.
+  useEffect(() => {
+    if (loaded.current) return;
+    loaded.current = true;
+
+    fetchJson('/api/get-profile')
+      .then(res => {
+        const p = res?.data;
+        if (p) setAuthor({ name: p.name, location: [p.district, p.state].filter(Boolean).join(', ') });
+      })
+      .catch(err => console.error(err));
+
+    loadStats();
+  }, []);
+
+  // Wait for a pause in typing before searching the server.
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const pagePath = (skip) => {
+    const params = new URLSearchParams({ skip: String(skip), limit: String(PAGE_SIZE) });
+    if (activeTag === 'Saved') params.set('saved', 'true');
+    else if (activeTag !== 'All') params.set('tag', activeTag);
+    if (query) params.set('search', query);
+    return `/api/community/posts?${params}`;
   };
 
-  const handleNewPost = (data) => {
-    const newPost = {
-      id: Date.now(),
-      author: 'You',
-      avatar: 'ME',
-      location: 'Your Location',
-      time: 'Just now',
-      tag: data.tag,
-      emoji: data.emoji,
-      title: data.title,
-      body: data.body,
-      likes: 0,
-      comments: 0,
-      bookmarked: false,
-      liked: false,
-      tags: data.tags,
-    };
-    setPostList(prev => [newPost, ...prev]);
+  // Reload from the first page when the tag or search changes. The request id
+  // drops responses that arrive after a newer request started.
+  useEffect(() => {
+    const id = ++requestId.current;
+    setStatus('loading');
+
+    fetchJson(pagePath(0))
+      .then(page => {
+        if (id !== requestId.current) return;
+        setPostList(page);
+        setHasMore(page.length === PAGE_SIZE);
+        setStatus('ready');
+      })
+      .catch(err => {
+        if (id !== requestId.current) return;
+        console.error(err);
+        setStatus('error');
+      });
+  }, [activeTag, query]);
+
+  const loadMore = async () => {
+    const id = requestId.current;
+    setLoadingMore(true);
+    try {
+      const page = await fetchJson(pagePath(postList.length));
+      if (id !== requestId.current) return;
+      setPostList(prev => {
+        const ids = new Set(prev.map(p => p.id));
+        return [...prev, ...page.filter(p => !ids.has(p.id))];
+      });
+      setHasMore(page.length === PAGE_SIZE);
+    } catch (err) {
+      console.error(err);
+      toast.error('Could not load more posts');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const updatePost = (id, changes) =>
+    setPostList(prev => prev.map(p => (p.id === id ? { ...p, ...changes } : p)));
+
+  // One action per post at a time, so double clicks cannot race.
+  const runAction = async (post, action, request) => {
+    if (pending[post.id]) return;
+    setPending(p => ({ ...p, [post.id]: action }));
+    try {
+      await request();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setPending(p => {
+        const next = { ...p };
+        delete next[post.id];
+        return next;
+      });
+    }
+  };
+
+  const toggleLike = (post) => runAction(post, 'like', async () => {
+    const res = await fetchJson(`/api/community/posts/${post.id}/like`, { method: 'POST' });
+    updatePost(post.id, { liked: res.liked, likes: res.likes });
+  });
+
+  const toggleBookmark = (post) => runAction(post, 'bookmark', async () => {
+    const res = await fetchJson(`/api/community/posts/${post.id}/bookmark`, { method: 'POST' });
+    if (activeTag === 'Saved' && !res.bookmarked) {
+      setPostList(prev => prev.filter(p => p.id !== post.id));
+    } else {
+      updatePost(post.id, { bookmarked: res.bookmarked });
+    }
+    toast(res.bookmarked ? '🔖 Saved to bookmarks' : 'Bookmark removed');
+  });
+
+  const deletePost = (post) => {
+    if (!window.confirm('Delete this post? This cannot be undone.')) return;
+    runAction(post, 'delete', async () => {
+      await fetchJson(`/api/community/posts/${post.id}`, { method: 'DELETE' });
+      setPostList(prev => prev.filter(p => p.id !== post.id));
+      loadStats();
+      toast('Post deleted');
+    });
+  };
+
+  const handleNewPost = (post) => {
+    // Show it at the top if it belongs in the current view.
+    if ((activeTag === 'All' || activeTag === post.tag) && !query) {
+      setPostList(prev => [post, ...prev]);
+    }
+    loadStats();
     toast.success('🌱 Your story has been published!');
   };
 
-  const allTags = ['All', 'Disease Control', 'Yield Tip', 'Market Tip', 'Question', 'Success Story', 'Farming Tip'];
-
-  const filtered = postList.filter(p =>
-    (activeTag === 'All' || p.tag === activeTag) &&
-    (p.title.toLowerCase().includes(search.toLowerCase()) ||
-      p.body.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtering = activeTag !== 'All' || query;
+  const savedView = activeTag === 'Saved' && !query;
 
   return (
     <div className="min-h-screen grid-bg">
@@ -493,6 +575,7 @@ export default function CommunityPage() {
         <ShareStoryModal
           onClose={() => setShowModal(false)}
           onSubmit={handleNewPost}
+          author={author}
         />
       )}
 
@@ -501,14 +584,14 @@ export default function CommunityPage() {
 
           {/* ── Main feed ── */}
           <div className="lg:col-span-8">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6 gap-3">
               <div>
                 <h1 className="font-display text-3xl font-bold mb-1" style={{ color: '#F0EBE0' }}>Community</h1>
-                <p className="text-sm" style={{ color: '#6B8F6B' }}>Learn from 2.4 lakh+ farmers across India</p>
+                <p className="text-sm" style={{ color: '#6B8F6B' }}>Learn from fellow farmers across India</p>
               </div>
               <button
                 onClick={() => setShowModal(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all flex-shrink-0"
                 style={{ background: 'rgba(61,154,64,0.15)', border: '1px solid rgba(61,154,64,0.35)', color: '#52C455' }}>
                 <Plus size={14} /> Share Story
               </button>
@@ -533,84 +616,139 @@ export default function CommunityPage() {
                     color: activeTag === tag ? '#52C455' : '#6B8F6B',
                     background: activeTag === tag ? 'rgba(61,154,64,0.12)' : 'transparent',
                   }}>
-                  {tag}
+                  {tag === 'Saved' ? '🔖 Saved' : tag}
                 </button>
               ))}
             </div>
 
             {/* Posts */}
-            <div className="space-y-4">
-              {filtered.map(post => (
-                <div key={post.id} className="card card-hover p-5">
-                  {/* Author */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-                        style={{ background: 'linear-gradient(135deg, rgba(61,154,64,0.3), rgba(82,196,85,0.2))', color: '#52C455', border: '1px solid rgba(61,154,64,0.3)' }}>
-                        {post.avatar}
+            {status === 'loading' && (
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => <div key={i} className="shimmer rounded-xl h-44" />)}
+              </div>
+            )}
+
+            {status === 'error' && (
+              <div className="text-center py-16">
+                <p className="font-semibold" style={{ color: '#6B8F6B' }}>Could not load posts</p>
+                <p className="text-sm mt-1" style={{ color: '#3D5A3E' }}>Please refresh the page to try again</p>
+              </div>
+            )}
+
+            {status === 'ready' && (
+              <div className="space-y-4">
+                {postList.map(post => {
+                  const image = backendAsset(post.image_url);
+                  const busy = !!pending[post.id];
+
+                  return (
+                    <div key={post.id} className="card card-hover p-5">
+                      {/* Author */}
+                      <div className="flex items-center justify-between mb-4 gap-2">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                            style={{ background: 'linear-gradient(135deg, rgba(61,154,64,0.3), rgba(82,196,85,0.2))', color: '#52C455', border: '1px solid rgba(61,154,64,0.3)' }}>
+                            {initials(post.author)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold" style={{ color: '#F0EBE0' }}>
+                              {post.author}{post.is_mine && <span style={{ color: '#6B8F6B' }}> (you)</span>}
+                            </p>
+                            <p className="text-xs" style={{ color: '#6B8F6B' }}>
+                              {[post.location, timeAgo(parseUtc(post.created_at))].filter(Boolean).join(' · ')}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xs px-2.5 py-1 rounded-full font-medium flex-shrink-0"
+                          style={{ background: tagConfig[post.tag]?.bg, color: tagConfig[post.tag]?.color }}>
+                          {post.tag}
+                        </span>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold" style={{ color: '#F0EBE0' }}>{post.author}</p>
-                        <p className="text-xs" style={{ color: '#6B8F6B' }}>{post.location} · {post.time}</p>
+
+                      {/* Content */}
+                      <div className="flex gap-3 mb-4">
+                        <div className="text-3xl flex-shrink-0">{post.emoji}</div>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold mb-2 break-words" style={{ color: '#F0EBE0', lineHeight: '1.4' }}>{post.title}</h3>
+                          <p className="text-sm whitespace-pre-wrap break-words" style={{ color: '#8FAF8F', lineHeight: '1.7' }}>{post.body}</p>
+                        </div>
+                      </div>
+
+                      {image && (
+                        <div className="rounded-xl overflow-hidden mb-4" style={{ maxHeight: '320px' }}>
+                          <img src={image} alt="" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+
+                      {/* Tags */}
+                      {post.post_tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-4">
+                          {post.post_tags.map(t => (
+                            <button key={t} onClick={() => setSearch(t)}
+                              className="text-xs px-2 py-0.5 rounded-full"
+                              style={{ background: 'rgba(61,154,64,0.08)', color: '#6B8F6B', border: '1px solid rgba(61,154,64,0.12)' }}>
+                              #{t}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-4 pt-3" style={{ borderTop: '1px solid rgba(61,154,64,0.1)' }}>
+                        <button onClick={() => toggleLike(post)} disabled={busy}
+                          className="flex items-center gap-1.5 text-xs transition-all"
+                          style={{ color: post.liked ? '#52C455' : '#6B8F6B' }}>
+                          <ThumbsUp size={14} fill={post.liked ? 'currentColor' : 'none'} />
+                          {post.likes}
+                        </button>
+                        <span className="flex items-center gap-1.5 text-xs" style={{ color: '#6B8F6B' }}>
+                          <MessageCircle size={14} /> {post.comments}
+                        </span>
+                        <button onClick={() => toggleBookmark(post)} disabled={busy}
+                          className="flex items-center gap-1.5 text-xs transition-all ml-auto"
+                          style={{ color: post.bookmarked ? '#E8A020' : '#6B8F6B' }}>
+                          <Bookmark size={14} fill={post.bookmarked ? 'currentColor' : 'none'} />
+                        </button>
+                        <button onClick={() => { navigator.clipboard.writeText(window.location.href); toast('Link copied!'); }}
+                          className="flex items-center gap-1.5 text-xs" style={{ color: '#6B8F6B' }}>
+                          <Share2 size={14} />
+                        </button>
+                        {post.is_mine && (
+                          <button onClick={() => deletePost(post)} disabled={busy} title="Delete post"
+                            className="flex items-center gap-1.5 text-xs" style={{ color: '#6B8F6B' }}>
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <span className="text-xs px-2.5 py-1 rounded-full font-medium"
-                      style={{ background: tagConfig[post.tag]?.bg, color: tagConfig[post.tag]?.color }}>
-                      {post.tag}
-                    </span>
-                  </div>
+                  );
+                })}
 
-                  {/* Content */}
-                  <div className="flex gap-3 mb-4">
-                    <div className="text-3xl flex-shrink-0">{post.emoji}</div>
-                    <div>
-                      <h3 className="font-semibold mb-2" style={{ color: '#F0EBE0', lineHeight: '1.4' }}>{post.title}</h3>
-                      <p className="text-sm" style={{ color: '#8FAF8F', lineHeight: '1.7' }}>{post.body}</p>
-                    </div>
-                  </div>
-
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-1.5 mb-4">
-                    {post.tags.map(t => (
-                      <span key={t} className="text-xs px-2 py-0.5 rounded-full"
-                        style={{ background: 'rgba(61,154,64,0.08)', color: '#6B8F6B', border: '1px solid rgba(61,154,64,0.12)' }}>
-                        #{t}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-4 pt-3" style={{ borderTop: '1px solid rgba(61,154,64,0.1)' }}>
-                    <button onClick={() => toggle(post.id, 'liked')}
-                      className="flex items-center gap-1.5 text-xs transition-all"
-                      style={{ color: post.liked ? '#52C455' : '#6B8F6B' }}>
-                      <ThumbsUp size={14} />
-                      {post.likes}
-                    </button>
-                    <button className="flex items-center gap-1.5 text-xs" style={{ color: '#6B8F6B' }}>
-                      <MessageCircle size={14} /> {post.comments}
-                    </button>
-                    <button onClick={() => toggle(post.id, 'bookmarked')}
-                      className="flex items-center gap-1.5 text-xs transition-all ml-auto"
-                      style={{ color: post.bookmarked ? '#E8A020' : '#6B8F6B' }}>
-                      <Bookmark size={14} />
-                    </button>
-                    <button onClick={() => { navigator.clipboard.writeText(window.location.href); toast('Link copied!'); }}
-                      className="flex items-center gap-1.5 text-xs" style={{ color: '#6B8F6B' }}>
-                      <Share2 size={14} />
+                {hasMore && (
+                  <div className="flex justify-center">
+                    <button onClick={loadMore} disabled={loadingMore}
+                      className="px-4 py-2 rounded-xl text-sm font-medium"
+                      style={{ background: 'rgba(61,154,64,0.1)', border: '1px solid rgba(61,154,64,0.25)', color: '#52C455' }}>
+                      {loadingMore ? 'Loading…' : 'Load more'}
                     </button>
                   </div>
-                </div>
-              ))}
+                )}
 
-              {filtered.length === 0 && (
-                <div className="text-center py-16">
-                  <p className="text-2xl mb-3">🔍</p>
-                  <p className="font-semibold" style={{ color: '#6B8F6B' }}>No posts found</p>
-                  <p className="text-sm mt-1" style={{ color: '#3D5A3E' }}>Try a different search or filter</p>
-                </div>
-              )}
-            </div>
+                {postList.length === 0 && (
+                  <div className="text-center py-16">
+                    <p className="text-2xl mb-3">{savedView ? '🔖' : filtering ? '🔍' : '🌱'}</p>
+                    <p className="font-semibold" style={{ color: '#6B8F6B' }}>
+                      {savedView ? 'No saved posts yet' : filtering ? 'No posts found' : 'No posts yet'}
+                    </p>
+                    <p className="text-sm mt-1" style={{ color: '#3D5A3E' }}>
+                      {savedView
+                        ? 'Tap the bookmark on a post to save it here'
+                        : filtering ? 'Try a different search or filter' : 'Be the first to share your story'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* ── Sidebar ── */}
@@ -619,26 +757,27 @@ export default function CommunityPage() {
             <div className="card p-4">
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp size={14} style={{ color: '#52C455' }} />
-                <p className="text-sm font-semibold" style={{ color: '#F0EBE0' }}>Trending Topics</p>
+                <p className="text-sm font-semibold" style={{ color: '#F0EBE0' }}>Trending This Week</p>
               </div>
-              <div className="space-y-3">
-                {[
-                  { topic: '#EarlyBlight',       posts: 1240, trend: '+18%' },
-                  { topic: '#KharifSeason2026',   posts: 890,  trend: '+41%' },
-                  { topic: '#OnionPrices',         posts: 670,  trend: '+12%' },
-                  { topic: '#SoybeanMSP',          posts: 430,  trend: '+8%'  },
-                  { topic: '#DroughtManagement',   posts: 310,  trend: '+5%'  },
-                ].map(({ topic, posts, trend }, i) => (
-                  <div key={topic} className="flex items-center justify-between cursor-pointer"
-                    style={{ borderBottom: i < 4 ? '1px solid rgba(61,154,64,0.07)' : 'none', paddingBottom: i < 4 ? '10px' : '0' }}>
-                    <div>
-                      <p className="text-sm font-medium" style={{ color: '#52C455' }}>{topic}</p>
-                      <p className="text-xs" style={{ color: '#6B8F6B' }}>{posts.toLocaleString()} posts</p>
-                    </div>
-                    <span className="text-xs" style={{ color: '#52C455' }}>{trend}</span>
-                  </div>
-                ))}
-              </div>
+              {stats?.trending?.length ? (
+                <div className="space-y-3">
+                  {stats.trending.map(({ tag, posts }, i) => {
+                    const last = i === stats.trending.length - 1;
+                    return (
+                      <button key={tag} onClick={() => setSearch(tag)}
+                        className="w-full flex items-center justify-between text-left"
+                        style={{ borderBottom: last ? 'none' : '1px solid rgba(61,154,64,0.07)', paddingBottom: last ? '0' : '10px' }}>
+                        <p className="text-sm font-medium" style={{ color: '#52C455' }}>#{tag}</p>
+                        <p className="text-xs" style={{ color: '#6B8F6B' }}>{posts} {posts === 1 ? 'post' : 'posts'}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs" style={{ color: '#6B8F6B' }}>
+                  {stats ? 'No tagged posts this week yet.' : 'Loading…'}
+                </p>
+              )}
             </div>
 
             {/* Top contributors */}
@@ -647,22 +786,25 @@ export default function CommunityPage() {
                 <Award size={14} style={{ color: '#E8A020' }} />
                 <p className="text-sm font-semibold" style={{ color: '#F0EBE0' }}>Top Contributors</p>
               </div>
-              <div className="space-y-3">
-                {[
-                  { name: 'Ramesh Patil',  posts: 84, badge: '🥇', loc: 'Nashik'     },
-                  { name: 'Kavitha N.',    posts: 71, badge: '🥈', loc: 'Belgaum'    },
-                  { name: 'Harpreet S.',   posts: 65, badge: '🥉', loc: 'Amritsar'   },
-                  { name: 'Gopal K.',      posts: 52, badge: '⭐', loc: 'Coimbatore' },
-                ].map(({ name, posts, badge, loc }) => (
-                  <div key={name} className="flex items-center gap-3">
-                    <span className="text-lg">{badge}</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium" style={{ color: '#F0EBE0' }}>{name}</p>
-                      <p className="text-xs" style={{ color: '#6B8F6B' }}>{loc} · {posts} posts</p>
+              {stats?.top_contributors?.length ? (
+                <div className="space-y-3">
+                  {stats.top_contributors.map(({ name, location, posts }, i) => (
+                    <div key={`${name}-${i}`} className="flex items-center gap-3">
+                      <span className="text-lg">{medals[i] || '⭐'}</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium" style={{ color: '#F0EBE0' }}>{name}</p>
+                        <p className="text-xs" style={{ color: '#6B8F6B' }}>
+                          {[location, `${posts} ${posts === 1 ? 'post' : 'posts'}`].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs" style={{ color: '#6B8F6B' }}>
+                  {stats ? 'No posts yet.' : 'Loading…'}
+                </p>
+              )}
             </div>
 
             {/* Community stats */}
@@ -672,15 +814,16 @@ export default function CommunityPage() {
                 <Users size={13} style={{ color: '#52C455' }} />
                 <p className="text-xs font-semibold" style={{ color: '#52C455' }}>Community Stats</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: 'Members',          value: '2.4L+' },
-                  { label: 'Posts Today',       value: '1,842' },
-                  { label: 'States',            value: '18'    },
-                  { label: 'Questions Solved',  value: '94%'   },
+                  { label: 'Members', value: stats?.members },
+                  { label: 'Posts Today', value: stats?.posts_today },
+                  { label: 'States', value: stats?.states },
                 ].map(({ label, value }) => (
                   <div key={label}>
-                    <p className="font-bold text-lg" style={{ color: '#F0EBE0' }}>{value}</p>
+                    <p className="font-bold text-lg" style={{ color: '#F0EBE0' }}>
+                      {value != null ? value.toLocaleString('en-IN') : '—'}
+                    </p>
                     <p className="text-xs" style={{ color: '#6B8F6B' }}>{label}</p>
                   </div>
                 ))}

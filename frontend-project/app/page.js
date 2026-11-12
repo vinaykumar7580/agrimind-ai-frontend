@@ -54,6 +54,7 @@ export default function Home() {
   const [forecast, setForecast] = useState(null);
   const [forecastError, setForecastError] = useState(false);
   const [scanId, setScanId]=useState(null)
+  const [chatOpened, setChatOpened] = useState(false);
   const weatherRequested = useRef(false);
   const pricesLoading = useRef(false);
   const forecastRequested = useRef(false);
@@ -115,6 +116,10 @@ export default function Home() {
     };
 
     fetchWeather();
+  }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab === "chat") setChatOpened(true);
   }, [activeTab])
 
   useEffect(() => {
@@ -341,7 +346,13 @@ export default function Home() {
                 />
               )}
 
-              {activeTab === "chat" && <ChatPanel />}
+              {/* Once opened, chat stays mounted so a reply still on its way
+                  is not lost when the user switches tabs. */}
+              {(chatOpened || activeTab === "chat") && (
+                <div hidden={activeTab !== "chat"}>
+                  <ChatPanel scanId={scanId} active={activeTab === "chat"} />
+                </div>
+              )}
             </div>
           </div>
         </div>
